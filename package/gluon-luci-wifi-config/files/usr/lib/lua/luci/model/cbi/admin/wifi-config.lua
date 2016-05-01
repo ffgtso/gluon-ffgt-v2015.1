@@ -53,6 +53,8 @@ local s = f:section(SimpleSection, nil, translate(
 ))
 
 local radios = {}
+local macfilter = 'disable'
+local maclist = ''
 
 -- look for wifi interfaces and add them to the array
 uci:foreach('wireless', 'wifi-device',
@@ -78,12 +80,37 @@ for _, radio in ipairs(radios) do
     --box for the client network
     o = p:option(Flag, radio .. '_client_enabled', translate("Enable client network"))
     o.default = uci:get_bool('wireless', 'client_' .. radio, "disabled") and o.disabled or o.enabled
+    o:depends('_timed_client_enable', "")
     o.rmempty = false
+
+    --box for additional client network only if enabled
+    if uci:get('wireless', 'adclient_' .. radio) then
+      o = p:option(Flag, radio .. '_adclient_enabled', translate("Enable additional client network"))
+      o.default = uci:get_bool('wireless', 'adclient_' .. radio, "disabled") and o.disabled or o.enabled
+      o:depends('_timed_client_enable', "")
+      o.rmempty = false
+
+      --SSID of the client network
+      o = p:option(Value, radio .. '_adclient_ssid', translate("SSID of additional client network"))
+      o.default = uci:get('wireless', 'adclient_' .. radio, 'ssid')
+      o:depends(radio .. '_adclient_enabled', "1")
+      o:depends('_timed_client_enable', "1")
+      o.datatype = "string"
+      o.rmempty = true
+      o.description = translate("e.g. freifunk.net, empty is disabled")
+    end
 
     --box for the mesh network
     o = p:option(Flag, radio .. '_mesh_enabled', translate("Enable mesh network"))
     o.default = uci:get_bool('wireless', 'mesh_' .. radio, "disabled") and o.disabled or o.enabled
     o.rmempty = false
+
+    --box for the STA mesh network
+    if uci:get('wireless', 'stamesh_' .. radio) then
+      o = p:option(Flag, radio .. '_stamesh_enabled', translate("Enable STA mesh network"))
+      o.default = uci:get_bool('wireless', 'stamesh_' .. radio, "disabled") and o.disabled or o.enabled
+      o.rmempty = false
+    end
 
     local phy
 
@@ -110,8 +137,52 @@ for _, radio in ipairs(radios) do
         end
       end
     end
+
+    macfilter = uci:get('wireless', 'client_' .. radio, "macfilter")
+    maclist = uci:get('wireless', 'client_' .. radio, "maclist")
   end
 
+end
+
+local d = f:section(SimpleSection, nil, translate(
+                    "You can set up a list of clients which are not allowed to connect to "
+                 .. "your access point to use one its client networks. Please only use this "
+                 .. "feature to limit usage of your HotSpot if you absolutely understand "
+                 .. "what it does!"
+))
+
+o = d:option(Flag, '_filter_macs', translate("Disallow connection for specific clients"))
+o.default = macfilter == "deny" and o.enabled or o.disabled
+o.rmempty = false
+
+o = d:option(Value, '_filter_list', translate("MAC addresses to disallow connection"))
+o.default = maclist
+o:depends('_filter_macs', "1")
+o.rmempty = false
+o.datatype = "string"
+o.description = translate("list of MAC-addresses separated by space")
+
+d = f:section(SimpleSection, nil, translate(
+              "You can set up timed enabling/disabling of your client wireless "
+           .. "networks here. Please use cron-like expressions on individual lines, "
+           .. "terminated by either on or off. The expressions are evalutated from "
+           .. "from top to bottom for first match, with the default being off "
+           .. "if no rule matched."
+))
+
+o = d:option(Flag, '_timed_client_enable', translate("Enable timed client networks"))
+o.default = uci:get_bool('gluon-timed-wifi', 'default', "enabled") and o.enabled or o.disabled
+o.rmempty = false
+
+o = d:option(TextValue, '_timed_client_cron', translate("Timed client network cron expressions"))
+o:depends('_timed_client_enable', "1")
+o.wrap = "off"
+o.rows = 5
+o.rmempty = true
+o.description = translate("format: minute(s) hour(s) day(s) month(s) dow(s) on/off")
+
+function o.cfgvalue()
+  return table.concat(uci:get_list('gluon-timed-wifi', 'default', "cron"), "\n")
 end
 
 --when the save-button is pushed
@@ -121,16 +192,51 @@ function f.handle(self, state, data)
     for _, radio in ipairs(radios) do
 
       local clientdisabled = 0
-      if data[radio .. '_client_enabled'] == '0' then
+      if data['_timed_client_enable'] == '1' or data[radio .. '_client_enabled'] == '0' then
         clientdisabled = 1
       end
       uci:set('wireless', 'client_' .. radio, "disabled", clientdisabled)
+
+      if data['_filter_macs'] == '1' then
+        uci:set('wireless', 'client_' .. radio, "macfilter", "deny")
+        uci:set('wireless', 'client_' .. radio, "maclist", data['_filter_list'])
+      else
+        uci:set('wireless', 'client_' .. radio, "macfilter", "disable")
+      end
+
+      if uci:get('wireless', 'adclient_' .. radio) then
+        if data['_timed_client_enable'] == '1' then
+          uci:set('wireless', 'adclient_' .. radio, "disabled", 1)
+          uci:set('wireless', 'adclient_' .. radio, "ssid", data[radio .. '_adclient_ssid'] or "")
+        elseif data[radio .. '_adclient_enabled'] == '0' or not data[radio .. '_adclient_ssid'] then
+          uci:set('wireless', 'adclient_' .. radio, "disabled", 1)
+          uci:set('wireless', 'adclient_' .. radio, "ssid", "")
+        else
+          uci:set('wireless', 'adclient_' .. radio, "disabled", 0)
+          uci:set('wireless', 'adclient_' .. radio, "ssid", data[radio .. '_adclient_ssid'])
+        end
+
+        if data['_filter_macs'] == '1' then
+          uci:set('wireless', 'adclient_' .. radio, "macfilter", "deny")
+          uci:set('wireless', 'adclient_' .. radio, "maclist", data['_filter_list'])
+        else
+          uci:set('wireless', 'adclient_' .. radio, "macfilter", "disable")
+        end
+      end
 
       local meshdisabled = 0
       if data[radio .. '_mesh_enabled'] == '0' then
         meshdisabled = 1
       end
       uci:set('wireless', 'mesh_' .. radio, "disabled", meshdisabled)
+
+      if uci:get('wireless', 'stamesh_' .. radio) then
+        local stameshdisabled = 0
+        if data[radio .. '_stamesh_enabled'] == '0' then
+          stameshdisabled = 1
+        end
+        uci:set('wireless', 'stamesh_' .. radio, "disabled", stameshdisabled)
+      end
 
       if data[radio .. '_txpower'] then
         if data[radio .. '_txpower'] == 'default' then
@@ -142,8 +248,22 @@ function f.handle(self, state, data)
 
     end
 
+    if data['_timed_client_enable'] == '1' then
+      local crons = {}
+      for line in data['_timed_client_cron']:gmatch("[^\r\n]+") do
+        table.insert(crons, line)
+      end
+
+      uci:set('gluon-timed-wifi', 'default', "enabled", 1)
+      uci:set_list('gluon-timed-wifi', 'default', "cron", crons)
+    else
+      uci:set('gluon-timed-wifi', 'default', "enabled", 0)
+    end
+
     uci:save('wireless')
+    uci:save('gluon-timed-wifi')
     uci:commit('wireless')
+    uci:commit('gluon-timed-wifi')
   end
 end
 
