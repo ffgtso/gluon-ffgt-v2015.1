@@ -1,0 +1,105 @@
+--- ../gluon/./package/gluon-mesh-batman-adv-core/files/lib/gluon/upgrade/320-gluon-mesh-batman-adv-core-wireless	2016-05-01 21:23:12.507348768 +0200
++++ ./package/gluon-mesh-batman-adv-core/files/lib/gluon/upgrade/320-gluon-mesh-batman-adv-core-wireless	2016-05-01 21:22:44.090959262 +0200
+@@ -14,29 +14,69 @@
+   uci:set('wireless', radio, 'country', site.regdom)
+ 
+   local client = 'client_' .. radio
+-  local mesh = 'mesh_' .. radio
+-
+   local disable_state_client = false
+-  local disable_state_mesh = false
++  local client_macfilter = 'disable'
++  local client_maclist = ''
+ 
+   if uci:get('wireless', client) then
+-    disable_state_client = uci:get_bool('wireless', client, "disabled")
++    disable_state_client = uci:get_bool('gluon-timed-wifi', 'default', "enabled") or uci:get_bool('wireless', client, "disabled")
++    client_macfilter = uci:get('wireless', client, "macfilter") or 'disable'
++    client_maclist = uci:get('wireless', client, "maclist") or ''
+   elseif config.client_disabled then
+     disable_state_client = true
+   end
+ 
++  local adclient = 'adclient_' .. radio
++  local disable_state_adclient = true
++  local adclient_ssid = ''
++  local adclient_macfilter = 'disable'
++  local adclient_maclist = ''
++
++  if not config.adclient_disabled then
++    if uci:get('wireless', adclient) then
++      disable_state_adclient = uci:get_bool('gluon-timed-wifi', 'default', "enabled") or uci:get_bool('wireless', adclient, "disabled")
++      adclient_ssid = disable_state_adclient and '' or uci:get('wireless', adclient, "ssid")
++      adclient_macfilter = uci:get('wireless', adclient, "macfilter") or 'disable'
++      adclient_maclist = uci:get('wireless', adclient, "maclist") or ''
++    end
++  end
++
++  local mesh = 'mesh_' .. radio
++  local disable_state_mesh = false
++  local mesh_enc = config.mesh_enc
++  local mesh_psk = config.mesh_psk
++
+   if uci:get('wireless', mesh) then
+     disable_state_mesh = uci:get_bool('wireless', mesh, "disabled")
++    mesh_enc = mesh_enc or uci:get('wireless', mesh, "encryption")
++    mesh_psk = mesh_enc and ( mesh_psk or uci:get('wireless', mesh, "key") )
+   elseif config.mesh_disabled then
+     disable_state_mesh = true
+   end
+ 
++  local stamesh = 'stamesh_' .. radio
++  local disable_state_stamesh = true
++  local stamesh_enc = config.stamesh_enc or config.mesh_enc
++  local stamesh_psk = config.stamesh_psk or config.mesh_psk
++
++  if uci:get('wireless', stamesh) then
++    disable_state_stamesh = uci:get_bool('wireless', stamesh, "disabled")
++    stamesh_enc = stamesh_enc or uci:get('wireless', stamesh, "encryption")
++    stamesh_psk = stamesh_enc and ( stamesh_psk or uci:get('wireless', stamesh, "key") )
++  elseif config.stamesh_enabled then
++    disable_state_stamesh = false
++  end
++
+   local client_ifname
++  local adclient_ifname
+   local mesh_ifname
++  local stamesh_ifname
+   local radio_suffix = radio:match('^radio(%d+)$')
+   if radio_suffix then
+     client_ifname = 'client' .. radio_suffix
++    adclient_ifname = 'adclient' .. radio_suffix
+     mesh_ifname = 'mesh' .. radio_suffix
++    stamesh_ifname = 'stamesh' .. radio_suffix
+   end
+ 
+   uci:delete('wireless', client)
+@@ -49,9 +89,28 @@
+ 		macaddr = util.generate_mac(2, index),
+ 		ifname = client_ifname,
+ 		disabled = disable_state_client and 1 or 0,
++		macfilter = client_macfilter,
++		maclist = client_maclist,
+ 	      }
+   )
+ 
++  uci:delete('wireless', adclient)
++  if not config.adclient_disabled then
++    uci:section('wireless', 'wifi-iface', adclient,
++		{
++		  device = radio,
++		  network = 'client',
++		  mode = 'ap',
++		  ssid = adclient_ssid,
++		  macaddr = util.generate_mac(3, index),
++		  ifname = adclient_ifname,
++		  disabled = disable_state_adclient and 1 or 0,
++		  macfilter = adclient_macfilter,
++		  maclist = adclient_maclist,
++		}
++    )
++  end
++
+   uci:delete('network', mesh)
+   uci:delete('network', mesh .. '_vlan')
+ 
