@@ -1,0 +1,888 @@
+diff --git a/target/linux/ramips/base-files/etc/diag.sh b/target/linux/ramips/base-files/etc/diag.sh
+index 74b8867..3f1ff20 100755
+--- a/target/linux/ramips/base-files/etc/diag.sh
++++ b/target/linux/ramips/base-files/etc/diag.sh
+@@ -193,6 +193,15 @@ get_status_led() {
+ 	y1s)
+ 		status_led="lenovo:blue:power"
+ 		;;
++	jhr-n805r)
++		status_led="jhr-n805r:blue:system"
++		;;
++	jhr-n825r)
++		status_led="jhr-n825r:red:power"
++		;;
++        jhr-n926r)
++		status_led="jhr-n926r:blue:system"
++		;;
+ 	esac
+ }
+ 
+diff --git a/target/linux/ramips/base-files/etc/uci-defaults/02_network b/target/linux/ramips/base-files/etc/uci-defaults/02_network
+index c3ea489..9e67ab0 100755
+--- a/target/linux/ramips/base-files/etc/uci-defaults/02_network
++++ b/target/linux/ramips/base-files/etc/uci-defaults/02_network
+@@ -118,6 +118,9 @@ ramips_setup_interfaces()
+ 	f5d8235-v1 | \
+ 	f5d8235-v2 | \
+ 	hg255d | \
++	jhr-n805r | \
++	jhr-n825r | \
++	jhr-n926r | \
+ 	rt-n14u | \
+ 	wrtnode | \
+ 	ur-326n4g | \
+diff --git a/target/linux/ramips/base-files/lib/ramips.sh b/target/linux/ramips/base-files/lib/ramips.sh
+index fd03423..b1a1abe 100755
+--- a/target/linux/ramips/base-files/lib/ramips.sh
++++ b/target/linux/ramips/base-files/lib/ramips.sh
+@@ -199,6 +199,15 @@ ramips_board_detect() {
+ 	*"Poray IP2202")
+ 		name="ip2202"
+ 		;;
++	*"JHR-N805R")
++		name="jhr-n805r"
++		;;
++	*"JHR-N825R")
++		name="jhr-n825r"
++		;;
++	*"JHR-N926R")
++		name="jhr-n926r"
++		;;
+ 	*"Poray M3")
+ 		name="m3"
+ 		;;
+diff --git a/target/linux/ramips/base-files/lib/upgrade/platform.sh b/target/linux/ramips/base-files/lib/upgrade/platform.sh
+index ba69a89..e8f1008 100755
+--- a/target/linux/ramips/base-files/lib/upgrade/platform.sh
++++ b/target/linux/ramips/base-files/lib/upgrade/platform.sh
+@@ -53,6 +53,9 @@ platform_check_image() {
+ 	hg255d | \
+ 	hlk-rm04 | \
+ 	ip2202 | \
++	jhr-n805r | \
++	jhr-n825r | \
++	jhr-n926r | \
+ 	m3 | \
+ 	m4 | \
+ 	mlw221 | \
+diff --git a/target/linux/ramips/dts/JHR-N805R.dts b/target/linux/ramips/dts/JHR-N805R.dts
+new file mode 100644
+index 0000000..b926acb
+--- /dev/null
++++ b/target/linux/ramips/dts/JHR-N805R.dts
+@@ -0,0 +1,89 @@
++/dts-v1/;
++
++/include/ "rt3050.dtsi"
++
++/ {
++	compatible = "JHR-N805R", "ralink,rt3050-soc";
++	model = "JCG JHR-N805R";
++
++	pinctrl {
++		state_default: pinctrl0 {
++			gpio {
++				ralink,group = "i2c", "jtag", "rgmii", "mdio", "uartf";
++				ralink,function = "gpio";
++			};
++		};
++	};
++
++	palmbus@10000000 {
++		spi@b00 {
++			status = "okay";
++
++			m25p80@0 {
++				#address-cells = <1>;
++				#size-cells = <1>;
++				compatible = "jedec,spi-nor";
++				reg = <0 0>;
++				linux,modalias = "m25p80", "mx25l3205d";
++				spi-max-frequency = <10000000>;
++
++				partition@0 {
++					label = "u-boot";
++					reg = <0x0 0x30000>;
++					read-only;
++				};
++
++				partition@30000 {
++					label = "u-boot-env";
++					reg = <0x30000 0x10000>;
++					read-only;
++				};
++
++				factory: partition@40000 {
++					label = "factory";
++					reg = <0x40000 0x10000>;
++					read-only;
++				};
++
++				partition@50000 {
++					label = "firmware";
++					reg = <0x50000 0x3b0000>;
++				};
++			};
++		};
++        };
++
++	ethernet@10100000 {
++		mtd-mac-address = <&factory 0x2e>;
++	};
++
++	esw@10110000 {
++		ralink,portmap = <0x3e>;
++	};
++
++	wmac@10180000 {
++		ralink,mtd-eeprom = <&factory 0>;
++	};
++
++	gpio-leds {
++		compatible = "gpio-leds";
++
++		system {
++			label = "jhr-n805r:blue:system";
++			gpios = <&gpio0 9 1>;
++		};
++	};
++
++        gpio-keys-polled {
++                compatible = "gpio-keys-polled";
++                #address-cells = <1>;
++                #size-cells = <0>;
++                poll-interval = <20>;
++
++                reset {
++                        label = "reset";
++                        gpios = <&gpio0 10 1>;
++                        linux,code = <0x198>;
++                };
++	};
++};
+diff --git a/target/linux/ramips/dts/JHR-N825R.dts b/target/linux/ramips/dts/JHR-N825R.dts
+new file mode 100644
+index 0000000..f2a5fa6
+--- /dev/null
++++ b/target/linux/ramips/dts/JHR-N825R.dts
+@@ -0,0 +1,81 @@
++/dts-v1/;
++
++/include/ "rt3050.dtsi"
++
++/ {
++	compatible = "JHR-N825R", "ralink,rt3052-soc";
++	model = "JCG JHR-N825R";
++
++	pinctrl {
++		state_default: pinctrl0 {
++			gpio {
++				ralink,group = "spi", "i2c", "jtag", "rgmii", "mdio", "uartf";
++				ralink,function = "gpio";
++			};
++		};
++	};
++
++	cfi@1f000000 {
++		compatible = "cfi-flash";
++		reg = <0x1f000000 0x800000>;
++		bank-width = <2>;
++		device-width = <2>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		partition@0 {
++			label = "u-boot";
++			reg = <0x0 0x30000>;
++			read-only;
++		};
++
++		partition@30000 {
++			label = "u-boot-env";
++			reg = <0x30000 0x10000>;
++			read-only;
++		};
++
++		factory: partition@40000 {
++			label = "factory";
++			reg = <0x40000 0x10000>;
++			read-only;
++		};
++
++		partition@50000 {
++			label = "firmware";
++			reg = <0x50000 0x3b0000>;
++		};
++	};
++
++	ethernet@10100000 {
++		mtd-mac-address = <&factory 0x2e>;
++	};
++
++	esw@10110000 {
++		ralink,portmap = <0x3e>;
++	};
++
++	wmac@10180000 {
++		ralink,mtd-eeprom = <&factory 0>;
++	};
++
++	gpio-leds {
++		compatible = "gpio-leds";
++		system {
++			label = "jhr-n825r:red:power";
++			gpios = <&gpio0 9 1>;
++		};
++	};
++
++	gpio-keys-polled {
++		compatible = "gpio-keys-polled";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		poll-interval = <20>;
++		reset_wps {
++			label = "reset_wps";
++			gpios = <&gpio0 10 1>;
++			linux,code = <0x198>;
++		};
++	};
++};
+diff --git a/target/linux/ramips/dts/JHR-N926R.dts b/target/linux/ramips/dts/JHR-N926R.dts
+new file mode 100644
+index 0000000..b196878
+--- /dev/null
++++ b/target/linux/ramips/dts/JHR-N926R.dts
+@@ -0,0 +1,127 @@
++/dts-v1/;
++
++/include/ "rt3050.dtsi"
++
++/ {
++	compatible = "JHR-N926R", "ralink,rt3052-soc";
++	model = "JCG JHR-N926R";
++
++	pinctrl {
++		state_default: pinctrl0 {
++			gpio {
++				ralink,group = "spi", "i2c", "jtag", "rgmii", "mdio", "uartf";
++				ralink,function = "gpio";
++			};
++		};
++	};
++
++	cfi@1f000000 {
++		compatible = "cfi-flash";
++		reg = <0x1f000000 0x800000>;
++		bank-width = <2>;
++		device-width = <2>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		partition@0 {
++			label = "u-boot";
++			reg = <0x0 0x30000>;
++			read-only;
++		};
++
++		partition@30000 {
++			label = "u-boot-env";
++			reg = <0x30000 0x10000>;
++			read-only;
++		};
++
++		factory: partition@40000 {
++			label = "factory";
++			reg = <0x40000 0x10000>;
++			read-only;
++		};
++
++		partition@50000 {
++			label = "firmware";
++			reg = <0x50000 0x3b0000>;
++		};
++	};
++
++	ethernet@10100000 {
++		mtd-mac-address = <&factory 0x2e>;
++	};
++
++	esw@10110000 {
++		ralink,portmap = <0x3e>;
++	};
++
++	wmac@10180000 {
++		ralink,mtd-eeprom = <&factory 0>;
++	};
++
++	gpio-leds {
++		compatible = "gpio-leds";
++
++		wlan1 {
++			label = "jhr-n926r:red:wlan";
++			gpios = <&gpio0 20 1>;
++		};
++
++		wlan2 {
++			label = "jhr-n926r:yellow:wlan";
++			gpios = <&gpio0 19 1>;
++		};
++
++		wlan3 {
++			label = "jhr-n926r:green:wlan";
++			gpios = <&gpio0 17 1>;
++		};
++
++		system {
++			label = "jhr-n926r:blue:system";
++			gpios = <&gpio0 13 1>;
++		};
++	};
++
++	gpio_export {
++		compatible = "gpio-export";
++		#size-cells = <0>;
++
++		display_data {
++			gpio-export,name = "display_data";
++			gpio-export,output = <1>;
++			gpios = <&gpio0 7 1>;
++		};
++
++		display_clock {
++			gpio-export,name = "display_clock";
++			gpio-export,output = <1>;
++			gpios = <&gpio0 8 0>;
++		};
++
++		display_blank {
++			gpio-export,name = "display_blank";
++			gpio-export,output = <1>;
++			gpios = <&gpio0 11 0>;
++		};
++	};
++
++	gpio-keys-polled {
++		compatible = "gpio-keys-polled";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		poll-interval = <20>;
++
++		reset_wps {
++			label = "reset_wps";
++			gpios = <&gpio0 10 1>;
++			linux,code = <0x198>;
++		};
++
++		wlan {
++			label = "wlan";
++			gpios = <&gpio0 1 1>;
++			linux,code = <0x100>;
++		};
++	};
++};
+diff --git a/target/linux/ramips/image/Makefile b/target/linux/ramips/image/Makefile
+index 86200ab..bcca8a2 100644
+--- a/target/linux/ramips/image/Makefile
++++ b/target/linux/ramips/image/Makefile
+@@ -360,6 +360,20 @@ Image/Build/Profile/CARAMBOLA=$(call BuildFirmware/Default8M/$(1),$(1),carambola
+ 
+ Image/Build/Profile/D105=$(call BuildFirmware/Default4M/$(1),$(1),d105,D105)
+ 
++define BuildFirmware/JCG/squashfs
++	$(call BuildFirmware/Default4M/$(1),$(1),$(2),$(3))
++	-jcgimage -o $(call imgname,$(1),$(2))-factory.bin \
++		-u $(call sysupname,$(1),$(2)) -v $(4)
++endef
++Image/Build/Profile/JHR-N805R=$(call BuildFirmware/JCG/$(1),$(1),jhr-n805r,JHR-N805R,29.24)
++Image/Build/Profile/JHR-N825R=$(call BuildFirmware/JCG/$(1),$(1),jhr-n825r,JHR-N825R,23.24)
++Image/Build/Profile/JHR-N926R=$(call BuildFirmware/JCG/$(1),$(1),jhr-n926r,JHR-N926R,25.24)
++define Image/Build/Profile/JCG
++	$(call Image/Build/Profile/JHR-N805R,$(1))
++	$(call Image/Build/Profile/JHR-N825R,$(1))
++	$(call Image/Build/Profile/JHR-N926R,$(1))
++endef
++
+ define BuildFirmware/DIR300B1/squashfs
+ 	$(call BuildFirmware/Default4M/$(1),$(1),$(2),$(3))
+ 	-mkwrgimg -s $(4) -d /dev/mtdblock/2 \
+@@ -598,6 +612,9 @@ define Image/Build/Profile/Default
+ 	$(call Image/Build/Profile/HLKRM04,$(1))
+ 	$(call Image/Build/Profile/HW550-3G,$(1))
+ 	$(call Image/Build/Profile/IP2202,$(1))
++	$(call Image/Build/Profile/JHR-N805R,$(1))
++	$(call Image/Build/Profile/JHR-N825R,$(1))
++	$(call Image/Build/Profile/JHR-N926R,$(1))
+ 	$(call Image/Build/Profile/M3,$(1))
+ 	$(call Image/Build/Profile/M4,$(1))
+ 	$(call Image/Build/Profile/MOFI3500-3GN,$(1))
+diff --git a/target/linux/ramips/rt305x/profiles/jcg.mk b/target/linux/ramips/rt305x/profiles/jcg.mk
+new file mode 100644
+index 0000000..5029ca9
+--- /dev/null
++++ b/target/linux/ramips/rt305x/profiles/jcg.mk
+@@ -0,0 +1,43 @@
++#
++# Copyright (C) 2011 OpenWrt.org
++#
++# This is free software, licensed under the GNU General Public License v2.
++# See /LICENSE for more information.
++#
++
++define Profile/JCG
++	NAME=JCG Routers
++endef
++
++define Profile/JCG/Description
++	Builds images for JHR-N805R, JHR-N825R, and JHR-N926R.
++endef
++$(eval $(call Profile,JCG))
++
++define Profile/JHR-N805R
++	NAME:=JCG JHR-N805R
++endef
++
++define Profile/JHR-N805R/Description
++	Package set for JCG JHR-N805R
++endef
++$(eval $(call Profile,JHR-N805R))
++
++define Profile/JHR-N825R
++	NAME:=JCG JHR-N825R
++endef
++
++define Profile/JHR-N825R/Description
++	Package set for JCG JHR-N825R
++endef
++$(eval $(call Profile,JHR-N825R))
++
++define Profile/JHR-N926R
++	NAME:=JCG JHR-N926R
++endef
++
++define Profile/JHR-N926R/Description
++	Package set for JCG JHR-N926R
++endef
++$(eval $(call Profile,JHR-N926R))
++
+diff --git a/tools/firmware-utils/Makefile b/tools/firmware-utils/Makefile
+index 4bb53cb..af3a990 100644
+--- a/tools/firmware-utils/Makefile
++++ b/tools/firmware-utils/Makefile
+@@ -70,6 +70,7 @@ define Host/Compile
+ 	$(call cc,mkheader_gemtek,-lz)
+ 	$(call cc,mkrtn56uimg, -lz)
+ 	$(call cc,dgn3500sum)
++	$(call cc,jcgimage, -lz -Wall)
+ endef
+ 
+ define Host/Install
+diff --git a/tools/firmware-utils/src/jcgimage.c b/tools/firmware-utils/src/jcgimage.c
+new file mode 100644
+index 0000000..7755eab
+--- /dev/null
++++ b/tools/firmware-utils/src/jcgimage.c
+@@ -0,0 +1,403 @@
++/*
++ * jcgimage - Create a JCG firmware image
++ *
++ * Copyright (C) 2015 Reinhard Max <reinhard@m4x.de>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++ *
++ */
++
++/*
++ * JCG firmware update images consist of a 512 byte header and a
++ * modified uImage (details below) as the payload.
++ *
++ * The payload is obfuscated by XORing it with a key that is generated
++ * from parts of the header. Fortunately only non-essential parts of
++ * the header are used for this and zeroing them results in a zero
++ * key, effectively disabling the obfuscation and allowing us to use
++ * clear text payloads.
++ *
++ * The mandatory parts of the header are:
++ *
++ * - A magic string of "YSZJ" at offset 0.
++ * - A value of 1 at offset 39 (header format version?)
++ * - A CRC32 checksum of the payload at offset 504.
++ * - A CRC32 checksum of the header at offset 508.
++ *
++ * An image constructed by these rules will be accepted by JCG's
++ * U-Boot in resuce mode via TFTP and the payload will be written to
++ * the flash starting at offset 0x00050000.
++ *
++ * JCG's U-Boot does check the content or size of the payload
++ * image. If it is too large, it wraps around and overwrites U-Boot,
++ * requiring JTAG to revive the board. To prevent such bricking from
++ * happening, this tool refuses to build such overlong images.
++ *
++ * Two more conditions have to be met for a JCG image to be accepted
++ * as a valid update by the web interface of the stock firware:
++ *
++ *   - The bytes at offsets 109 and 111 in the header must be a binary
++ *   representation of the first two components of the firmware
++ *   version as displayed in the update web form, or it will be
++ *   rejected as "incorrect product".
++ *
++ *   - The payload must start with a valid uImage header whose data
++ *   CRC checksum matches the whole rest of the update file rather
++ *   than just the number of bytes specified in the size field of the
++ *   header.
++ *
++ * This last condition is met by JCG's original firmware images,
++ * because they have both, kernel and rootfs inside the uImage and
++ * abuse the last four bytes of the name field to record the offset of
++ * the file system from the start of the uImage header. This tool
++ * produces such images when called with -k and -r, which are meant to
++ * repack the original firmware after modifying the file systen,
++ * e.g. to add debugging tools and enable shell access.
++ *
++ * In contrast, OpenWrt sysupgrade images consist of a uImage that
++ * only contains the kernel and has the rootfs appended to it. Hence,
++ * the CRC over kernel and file system does not match the one in the
++ * uImage header. Fixing this by adjusting the uImage header is not
++ * possible, because it makes the uImage unusable for booting. Instead
++ * we append four "patch" bytes to the end of the file system, that
++ * are calculated to force the checksum of kernel+fs to be the same as
++ * for the kernel alone.
++ *
++ */
++
++#include <zlib.h>
++#include <stdio.h>
++#include <string.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <libgen.h>
++#include <stdlib.h>
++#include <errno.h>
++#include <err.h>
++#include <time.h>
++#include <sys/mman.h>
++#include <arpa/inet.h>
++#include <assert.h>
++
++/*
++ * JCG Firmware image header
++ */
++#define JH_MAGIC 0x59535a4a        /* "YSZJ" */
++struct jcg_header {
++	uint32_t jh_magic;
++	uint8_t  jh_version[32];   /* Firmware version string.
++				      Fill with zeros to avoid encryption  */
++	uint32_t jh_type;          /* must be 1                            */
++	uint8_t  jh_info[64];      /* Firmware info string. Fill with
++				      zeros to avoid encryption            */
++	uint32_t jh_time;          /* Image creation time in seconds since
++				    * the Epoch. Does not seem to be used
++				    * by the stock firmware.               */
++	uint16_t jh_major;         /* Major fimware version                */
++	uint16_t jh_minor;         /* Minor fimrmware version              */
++	uint8_t  jh_unknown[392];  /* Apparently unused and all zeros      */
++	uint32_t jh_dcrc;          /* CRC checksum of the payload          */
++	uint32_t jh_hcrc;          /* CRC checksum of the header           */
++};
++
++/*
++ * JCG uses a modified uImage header that replaces the last four bytes
++ * of the image name with the length of the kernel in the image.
++ */
++#define IH_MAGIC    0x27051956    /* Image Magic Number     */
++#define IH_NMLEN    28            /* Image Name Length      */
++
++struct uimage_header {
++	uint32_t    ih_magic;         /* Image Header Magic Number   */
++	uint32_t    ih_hcrc;          /* Image Header CRC Checksum   */
++	uint32_t    ih_time;          /* Image Creation Timestamp    */
++	uint32_t    ih_size;          /* Image Data Size             */
++	uint32_t    ih_load;          /* Data     Load  Address      */
++	uint32_t    ih_ep;            /* Entry Point Address         */
++	uint32_t    ih_dcrc;          /* Image Data CRC Checksum     */
++	uint8_t     ih_os;            /* Operating System            */
++	uint8_t     ih_arch;          /* CPU architecture            */
++	uint8_t     ih_type;          /* Image Type                  */
++	uint8_t     ih_comp;          /* Compression Type            */
++	uint8_t     ih_name[IH_NMLEN];/* Image Name                  */
++	uint32_t    ih_fsoff;         /* Offset of the file system
++					 partition from the start of
++					 the header                  */
++};
++
++/*
++ * Open the named file and return its size and file descriptor.
++ * Exit in case of errors.
++ */
++int
++opensize(char *name, size_t *size)
++{
++	struct stat s;
++	int fd = open(name, O_RDONLY);
++	if (fd < 0) {
++		err(1, "cannot open \"%s\"", name);
++	}
++	if (fstat(fd, &s) == -1) {
++		err(1, "cannot stat \"%s\"", name);
++	}
++	*size = s.st_size;
++	return fd;
++}
++
++/*
++ * Write the JCG header
++ */
++void
++mkjcgheader(struct jcg_header *h, size_t psize, char *version)
++{
++	uLong crc;
++	uint16_t major = 0, minor = 0;
++	void *payload = (void *)h + sizeof(*h);
++
++	if (version != NULL) {
++		if (sscanf(version, "%hu.%hu", &major, &minor) != 2) {
++			err(1, "cannot parse version \"%s\"", version);
++		}
++	}
++
++	memset(h, 0, sizeof(*h));
++	h->jh_magic = htonl(JH_MAGIC);
++	h->jh_type  = htonl(1);
++	h->jh_time  = htonl(time(NULL));
++	h->jh_major = htons(major);
++	h->jh_minor = htons(minor);
++
++	/* CRC over JCG payload (uImage) */
++	crc = crc32(0L, Z_NULL, 0);
++	crc = crc32(crc, payload, psize);
++	h->jh_dcrc  = htonl(crc);
++
++	/* CRC over JCG header */
++	crc = crc32(0L, Z_NULL, 0);
++	crc = crc32(crc, (void *)h, sizeof(*h));
++	h->jh_hcrc  = htonl(crc);
++}
++
++/*
++ * Write the uImage header
++ */
++void
++mkuheader(struct uimage_header *h, size_t ksize, size_t fsize)
++{
++	uLong crc;
++	void *payload = (void *)h + sizeof(*h);
++
++	// printf("mkuheader: %p, %zd, %zd\n", h, ksize, fsize);
++	memset(h, 0, sizeof(*h));
++	h->ih_magic = htonl(IH_MAGIC);
++	h->ih_time  = htonl(time(NULL));
++	h->ih_size  = htonl(ksize + fsize);
++	h->ih_load  = htonl(0x80000000);
++	h->ih_ep    = htonl(0x80292000);
++	h->ih_os    = 0x05;
++	h->ih_arch  = 0x05;
++	h->ih_type  = 0x02;
++	h->ih_comp  = 0x03;
++	h->ih_fsoff = htonl(sizeof(*h) + ksize);
++	strcpy((char *)h->ih_name, "Linux Kernel Image");
++
++	/* CRC over uImage payload (kernel and file system) */
++	crc = crc32(0L, Z_NULL, 0);
++	crc = crc32(crc, payload, ntohl(h->ih_size));
++	h->ih_dcrc  = htonl(crc);
++	printf("CRC1: %08lx\n", crc);
++
++	/* CRC over uImage header */
++	crc = crc32(0L, Z_NULL, 0);
++	crc = crc32(crc, (void *)h, sizeof(*h));
++	h->ih_hcrc  = htonl(crc);
++	printf("CRC2: %08lx\n", crc);
++}
++
++/*
++ * Calculate a "patch" value and write it into the last four bytes of
++ * buf, so that the CRC32 checksum of the whole buffer is dcrc.
++ *
++ * Based on: SAR-PR-2006-05: Reversing CRC – Theory and Practice.
++ * Martin Stigge, Henryk Plötz, Wolf Müller, Jens-Peter Redlich.
++ * http://sar.informatik.hu-berlin.de/research/publications/#SAR-PR-2006-05
++ */
++void
++craftcrc(uint32_t dcrc, uint8_t *buf, size_t len)
++{
++	int i;
++	uint32_t a;
++	uint32_t patch = 0;
++	uint32_t crc = crc32(0L, Z_NULL, 0);
++
++	a = ~dcrc;
++	for (i = 0; i < 32; i++) {
++		if (patch & 1) {
++			patch = (patch >> 1) ^ 0xedb88320L;
++		} else {
++			patch >>= 1;
++		}
++		if (a & 1) {
++			patch ^= 0x5b358fd3L;
++		}
++		a >>= 1;
++	}
++	patch ^= ~crc32(crc, buf, len - 4);
++	for (i = 0; i < 4; i++) {
++		buf[len - 4 + i] = patch & 0xff;
++		patch >>= 8;
++	}
++	/* Verify that we actually get the desired result */
++	crc = crc32(0L, Z_NULL, 0);
++	crc = crc32(crc, buf, len);
++	if (crc != dcrc) {
++		errx(1, "CRC patching is broken: wanted %08x, but got %08x.",
++		     dcrc, crc);
++	}
++}
++
++void
++usage() {
++	fprintf(stderr, "Usage:\n"
++		"jcgimage -o outfile -u uImage [-v version]\n"
++		"jcgimage -o outfile -k kernel -f rootfs [-v version]\n");
++	exit(1);
++}
++
++#define MODE_UNKNOWN 0
++#define MODE_UIMAGE 1
++#define MODE_KR 2
++
++/* The output image must not be larger than 4MiB - 5*64kiB */
++#define MAXSIZE (size_t)(4 * 1024 * 1024 - 5 * 64 * 1024)
++
++int
++main(int argc, char **argv)
++{
++	struct jcg_header *jh;
++	struct uimage_header *uh;
++	int c;
++	char *imagefile = NULL;
++	char *file1 = NULL;
++	char *file2 = NULL;
++	char *version = NULL;
++	int mode = MODE_UNKNOWN;
++	int fdo, fd1, fd2;
++	size_t size1, size2, sizeu, sizeo, off1, off2;
++	void *map;
++
++	/* Make sure the headers have the right size */
++	assert(sizeof(struct jcg_header) == 512);
++	assert(sizeof(struct uimage_header) == 64);
++
++	while ((c = getopt(argc, argv, "o:k:f:u:v:h")) != -1) {
++		switch (c) {
++		case 'o':
++			imagefile = optarg;
++			break;
++		case 'k':
++			if (mode == MODE_UIMAGE) {
++				errx(1,"-k cannot be combined with -u");
++			}
++			mode = MODE_KR;
++			file1 = optarg;
++			break;
++		case 'f':
++			if (mode == MODE_UIMAGE) {
++				errx(1,"-f cannot be combined with -u");
++			}
++			mode = MODE_KR;
++			file2 = optarg;
++			break;
++		case 'u':
++			if (mode == MODE_KR) {
++				errx(1,"-u cannot be combined with -k and -r");
++			}
++			mode = MODE_UIMAGE;
++			file1 = optarg;
++			break;
++		case 'v':
++			version = optarg;
++			break;
++		case 'h':
++		default:
++			usage();
++		}
++	}
++	if (optind != argc) {
++		errx(1, "illegal arg \"%s\"", argv[optind]);
++	}
++	if (imagefile == NULL) {
++		errx(1, "no output file specified");
++	}
++	if (mode == MODE_UNKNOWN) {
++		errx(1, "specify either -u or -k and -r");
++	}
++	if (mode == MODE_KR) {
++		if (file1 == NULL || file2 == NULL) {
++			errx(1,"need -k and -r");
++		}
++		fd2 = opensize(file2, &size2);
++	}
++	fd1 = opensize(file1, &size1);
++	if (mode == MODE_UIMAGE) {
++		off1 = sizeof(*jh);
++		sizeu = size1 + 4;
++		sizeo = sizeof(*jh) + sizeu;
++	} else {
++		off1 = sizeof(*jh) + sizeof(*uh);
++		off2 = sizeof(*jh) + sizeof(*uh) + size1;
++		sizeu = sizeof(*uh) + size1 + size2;
++		sizeo = sizeof(*jh) + sizeu;
++	}
++
++	if (sizeo > MAXSIZE) {
++		errx(1,"payload too large: %zd > %zd\n", sizeo, MAXSIZE);
++	}
++
++	fdo = open(imagefile, O_RDWR | O_CREAT | O_TRUNC, 00644);
++	if (fdo < 0) {
++		err(1, "cannot open \"%s\"", imagefile);
++	}
++
++	if (ftruncate(fdo, sizeo) == -1) {
++		err(1, "cannot grow \"%s\" to %zd bytes", imagefile, sizeo);
++	}
++	map = mmap(NULL, sizeo, PROT_READ|PROT_WRITE, MAP_SHARED, fdo, 0);
++	uh = map + sizeof(*jh);
++	if (map == MAP_FAILED) {
++		err(1, "cannot mmap \"%s\"", imagefile);
++	}
++
++	if (read(fd1, map + off1, size1) != size1) {
++		err(1, "cannot copy %s", file1);
++	}
++
++	if (mode == MODE_KR) {
++		if (read(fd2, map+off2, size2) != size2) {
++			err(1, "cannot copy %s", file2);
++		}
++		mkuheader(uh, size1, size2);
++	} else if (mode == MODE_UIMAGE) {
++		craftcrc(ntohl(uh->ih_dcrc), (void*)uh + sizeof(*uh),
++			 sizeu - sizeof(*uh));
++	}
++	mkjcgheader(map, sizeu, version);
++	munmap(map, sizeo);
++	close(fdo);
++	return 0;
++}
