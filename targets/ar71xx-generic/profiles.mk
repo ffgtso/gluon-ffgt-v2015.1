@@ -80,6 +80,7 @@ endif
 $(eval $(call GluonProfile,TLWR1043))
 $(eval $(call GluonModel,TLWR1043,tl-wr1043nd-v1,tp-link-tl-wr1043n-nd-v1))
 $(eval $(call GluonModel,TLWR1043,tl-wr1043nd-v2,tp-link-tl-wr1043n-nd-v2))
+$(eval $(call GluonModel,TLWR1043,tl-wr1043nd-v3,tp-link-tl-wr1043n-nd-v3))
 
 # TL-WDR3500/3600/4300 v1
 $(eval $(call GluonProfile,TLWDR4300))
@@ -216,3 +217,4 @@ $(eval $(call GluonProfile,GLINET))
 $(eval $(call GluonModel,GLINET,gl-inet-6408A-v1,gl-inet-6408a-v1))
 $(eval $(call GluonModel,GLINET,gl-inet-6416A-v1,gl-inet-6416a-v1))
 endif
+
